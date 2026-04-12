@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../api/axios";
 import { useNavigate, Link } from "react-router-dom";
 import { setAuth } from "../auth/authStorage";
+import { useAuth } from "../context/AuthContext";
 import { motion } from "motion/react";
 import {
   ArrowLeft,
@@ -19,6 +20,7 @@ import "./Auth.css";
 
 export default function Login() {
   const nav = useNavigate();
+  const { login } = useAuth();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -41,7 +43,15 @@ export default function Login() {
         password,
       });
 
+      // persist tokens to storage so they survive reloads
       setAuth(res.data);
+
+      // notify AuthContext in the same tab so protected routes update immediately
+      try {
+        login({ accessToken: res.data.accessToken, refreshToken: res.data.refreshToken, user: res.data.user });
+      } catch (e) {
+        // if context isn't available for some reason, storage still has tokens
+      }
 
       const role = res.data.user.role;
       if (role === "patient") nav("/patient/dashboard");
