@@ -68,6 +68,15 @@ export default function ProtectedRoute({ allowedRoles = [] }) {
 
   // ── Guards ──────────────────────────────────────────────────────────────────
 
+  // While auth is being restored, don't redirect — show a spinner.
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="w-8 h-8 border-4 border-teal-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   // Not logged in
   if (!token)
     return <Navigate to="/login" state={{ from: location }} replace />;
