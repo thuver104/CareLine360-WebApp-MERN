@@ -40,55 +40,56 @@ const sendSMS = async ({ to, message }) => {
   // Truncate message to 1500 chars (SMSLenz limit)
   const smsMessage = message.slice(0, 1500);
 
-  const payload = JSON.stringify({
+  const payload = {
     user_id: userId,
     api_key: apiKey,
     sender_id: senderId,
     contact: phone,
     message: smsMessage,
-  });
+  };
 
-  return new Promise((resolve) => {
-    const options = {
-      hostname: "smslenz.lk",
-      path: "/api/send-sms",
+  try {
+    const response = await fetch("https://app.smslenz.lk/api/send-sms", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(payload),
+        "Accept": "application/json",
+        // Adding User-Agent as some APIs block standard serverless/node requests
+        "User-Agent": "CareLine360/1.0"
       },
-    };
+      body: JSON.stringify(payload)
+    });
 
-    const req = https.request(options, (res) => {
-      let data = "";
-      res.on("data", (chunk) => (data += chunk));
-      res.on("end", () => {
-        try {
-          const body = JSON.parse(data);
-          if (body.success) {
-            console.log(
-              `SMS sent to ${phone} | campaign: ${body.data?.campaign_id} | balance: ${body.data?.sms_credit_balance}`,
-            );
-            resolve({ success: true, data: body.data });
-          } else {
-            console.error(`SMSLenz error:`, body.message || data);
-            resolve({ success: false, error: body.message || data });
-          }
-        } catch {
-          console.error("SMSLenz parse error:", data);
-          resolve({ success: false, error: data });
-        }
+    const data = await response.json();
+    
+    if (data.success || response.ok) {
+      console.log(
+        `SMS sent to ${phone} | campaign: ${data.data?.campaign_id} | balance: ${data.data?.sms_credit_balance}`
+      );
+      return { success: true, data: data.data || data };
+    } else {
+      console.error(`SMSLenz error:`, data.message || data);
+      return { success: false, error: data.message || JSON.stringify(data) };
+    }
+  } catch (err) {
+    console.error("SMSLenz request error:", err.message);
+    
+    // Fallback to old domain if app.smslenz.lk fails
+    try {
+      const fallbackResponse = await fetch("https://smslenz.lk/api/send-sms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json", "User-Agent": "CareLine360/1.0" },
+        body: JSON.stringify(payload)
       });
-    });
-
-    req.on("error", (err) => {
-      console.error("SMSLenz request error:", err.message);
-      resolve({ success: false, error: err.message });
-    });
-
-    req.write(payload);
-    req.end();
-  });
+      const data = await fallbackResponse.json();
+      if (data.success || fallbackResponse.ok) {
+        return { success: true, data: data.data || data };
+      }
+      return { success: false, error: data.message || JSON.stringify(data) };
+    } catch (fallbackErr) {
+      return { success: false, error: fallbackErr.message };
+    }
+  }
 };
 
 /**
@@ -119,50 +120,52 @@ const sendBulkSMS = async ({ contacts, message }) => {
     return phone;
   });
 
-  const payload = JSON.stringify({
+  const payload = {
     user_id: userId,
     api_key: apiKey,
     sender_id: senderId,
     contacts: normalized,
     message: message.slice(0, 1500),
-  });
+  };
 
-  return new Promise((resolve) => {
-    const options = {
-      hostname: "smslenz.lk",
-      path: "/api/send-bulk-sms",
+  try {
+    const response = await fetch("https://app.smslenz.lk/api/send-bulk-sms", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(payload),
+        "Accept": "application/json",
+        "User-Agent": "CareLine360/1.0"
       },
-    };
-
-    const req = https.request(options, (res) => {
-      let data = "";
-      res.on("data", (chunk) => (data += chunk));
-      res.on("end", () => {
-        try {
-          const body = JSON.parse(data);
-          if (body.success) {
-            console.log(
-              `Bulk SMS sent to ${normalized.length} contacts | balance: ${body.data?.sms_credit_balance}`,
-            );
-            resolve({ success: true, data: body.data });
-          } else {
-            console.error("SMSLenz bulk error:", body.message || data);
-            resolve({ success: false, error: body.message || data });
-          }
-        } catch {
-          resolve({ success: false, error: data });
-        }
-      });
+      body: JSON.stringify(payload)
     });
 
-    req.on("error", (err) => resolve({ success: false, error: err.message }));
-    req.write(payload);
-    req.end();
-  });
+    const data = await response.json();
+    
+    if (data.success || response.ok) {
+      console.log(
+        `Bulk SMS sent to ${normalized.length} contacts | balance: ${data.data?.sms_credit_balance}`
+      );
+      return { success: true, data: data.data || data };
+    } else {
+      console.error("SMSLenz bulk error:", data.message || data);
+      return { success: false, error: data.message || JSON.stringify(data) };
+    }
+  } catch (err) {
+    try {
+      const fallbackResponse = await fetch("https://smslenz.lk/api/send-bulk-sms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json", "User-Agent": "CareLine360/1.0" },
+        body: JSON.stringify(payload)
+      });
+      const data = await fallbackResponse.json();
+      if (data.success || fallbackResponse.ok) {
+        return { success: true, data: data.data || data };
+      }
+      return { success: false, error: data.message || JSON.stringify(data) };
+    } catch (fallbackErr) {
+      return { success: false, error: fallbackErr.message };
+    }
+  }
 };
 
 /**
@@ -179,33 +182,28 @@ const getAccountStatus = async () => {
 
   const qs = querystring.stringify({ user_id: userId, api_key: apiKey });
 
-  return new Promise((resolve) => {
-    const options = {
-      hostname: "smslenz.lk",
-      path: `/api/account-status?${qs}`,
-      method: "GET",
-    };
-
-    const req = https.request(options, (res) => {
-      let data = "";
-      res.on("data", (chunk) => (data += chunk));
-      res.on("end", () => {
-        try {
-          const body = JSON.parse(data);
-          resolve(
-            body.success
-              ? { success: true, data: body.data }
-              : { success: false, error: body.message },
-          );
-        } catch {
-          resolve({ success: false, error: data });
-        }
-      });
+  try {
+    const response = await fetch(`https://app.smslenz.lk/api/account-status?${qs}`, {
+      headers: { "Accept": "application/json", "User-Agent": "CareLine360/1.0" }
     });
-
-    req.on("error", (err) => resolve({ success: false, error: err.message }));
-    req.end();
-  });
+    const data = await response.json();
+    if (data.success || response.ok) {
+      return { success: true, data: data.data || data };
+    }
+    return { success: false, error: data.message || JSON.stringify(data) };
+  } catch (err) {
+    try {
+      const fallbackResponse = await fetch(`https://smslenz.lk/api/account-status?${qs}`, {
+        headers: { "Accept": "application/json", "User-Agent": "CareLine360/1.0" }
+      });
+      const data = await fallbackResponse.json();
+      return (data.success || fallbackResponse.ok)
+        ? { success: true, data: data.data || data }
+        : { success: false, error: data.message || JSON.stringify(data) };
+    } catch (fallbackErr) {
+      return { success: false, error: fallbackErr.message };
+    }
+  }
 };
 
 module.exports = { sendSMS, sendBulkSMS, getAccountStatus };
