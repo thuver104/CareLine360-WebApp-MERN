@@ -1,12 +1,34 @@
 const { Resend } = require("resend");
 
-const resend = new Resend(process.env.RESEND_API_KEY || "re_placeholder");
+const createEmailError = (message, statusCode = 500, code = "EMAIL_ERROR") => {
+  const err = new Error(message);
+  err.statusCode = statusCode;
+  err.code = code;
+  return err;
+};
+
+const getResendClient = () => {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    throw createEmailError(
+      "Email service is not configured. Missing RESEND_API_KEY.",
+      500,
+      "EMAIL_CONFIG_MISSING"
+    );
+  }
+  return new Resend(apiKey);
+};
 
 const sendEmail = async ({ to, subject, html }) => {
   const recipient = process.env.EMAIL_OVERRIDE_TO || to;
-  if (!recipient) return null;
+  if (!recipient) {
+    throw createEmailError("Email recipient is required.", 400, "EMAIL_RECIPIENT_MISSING");
+  }
+
+  const from = process.env.EMAIL_FROM || "onboarding@resend.dev";
+  const resend = getResendClient();
+
   try {
-    const from = process.env.EMAIL_FROM || "onboarding@resend.dev";
     console.log(`[Email] from=${from} to=${recipient} subject="${subject}"`);
     const { data, error } = await resend.emails.send({
       from: `CareLine360 <${from}>`,
@@ -17,13 +39,25 @@ const sendEmail = async ({ to, subject, html }) => {
 
     if (error) {
       console.error("Resend error:", error);
-      return null;
+      throw createEmailError(
+        `Email delivery failed: ${error.message || "Unknown provider error"}`,
+        502,
+        "EMAIL_DELIVERY_FAILED"
+      );
     }
 
     console.log("Email sent:", data.id);
     return data;
   } catch (error) {
     console.error("Email send error:", error.message);
+    if (error.code && String(error.code).startsWith("EMAIL_")) {
+      throw error;
+    }
+    throw createEmailError(
+      `Email delivery failed: ${error.message || "Unexpected email error"}`,
+      502,
+      "EMAIL_DELIVERY_FAILED"
+    );
   }
 };
 
