@@ -142,10 +142,9 @@ const logoutUser = async ({ userId }) => {
 };
 
 const sendEmailVerificationOtp = async ({ identifier }) => {
-  const normalizedIdentifier = (identifier || "").trim();
-  const query = normalizedIdentifier.includes("@")
-    ? { email: normalizedIdentifier.toLowerCase() }
-    : { phone: normalizedIdentifier };
+  const query = identifier.includes("@")
+    ? { email: identifier.toLowerCase() }
+    : { phone: identifier };
 
   const user = await User.findOne(query);
   if (!user) return { status: 404, data: { message: "User not found" } };
@@ -157,7 +156,7 @@ const sendEmailVerificationOtp = async ({ identifier }) => {
   await Otp.deleteMany({ userId: user._id, purpose: "EMAIL_VERIFY" });
 
   const otp = generateOtp();
-  const record = await Otp.create({
+  await Otp.create({
     userId: user._id,
     purpose: "EMAIL_VERIFY",
     otpHash: hashOtp(otp),
@@ -165,27 +164,15 @@ const sendEmailVerificationOtp = async ({ identifier }) => {
     attemptsLeft: 5,
   });
 
-  try {
-    await sendEmail({
-      to: user.email,
-      subject: `${process.env.APP_NAME || "CareLine360"} - Verify your email`,
-      html: `
+  await sendEmail({
+    to: user.email,
+    subject: `${process.env.APP_NAME || "CareLine360"} - Verify your email`,
+    html: `
       <p>Your verification code is:</p>
       <h2 style="letter-spacing:2px">${otp}</h2>
       <p>This code expires in 10 minutes.</p>
     `,
-    });
-  } catch (err) {
-    await Otp.deleteOne({ _id: record._id });
-    return {
-      status: err.statusCode || 502,
-      data: {
-        message:
-          err.message ||
-          "Unable to deliver verification OTP email. Please check email configuration.",
-      },
-    };
-  }
+  });
 
   return { status: 200, data: { message: "Verification OTP sent to email" } };
 };
@@ -226,10 +213,9 @@ const verifyEmailOtp = async ({ identifier, otp }) => {
 };
 
 const sendPasswordResetOtp = async ({ identifier }) => {
-  const normalizedIdentifier = (identifier || "").trim();
-  const query = normalizedIdentifier.includes("@")
-    ? { email: normalizedIdentifier.toLowerCase() }
-    : { phone: normalizedIdentifier };
+  const query = identifier.includes("@")
+    ? { email: identifier.toLowerCase() }
+    : { phone: identifier };
 
   const user = await User.findOne(query);
   if (!user) return { status: 404, data: { message: "User not found" } };
@@ -239,7 +225,7 @@ const sendPasswordResetOtp = async ({ identifier }) => {
   await Otp.deleteMany({ userId: user._id, purpose: "PASSWORD_RESET" });
 
   const otp = generateOtp();
-  const record = await Otp.create({
+  await Otp.create({
     userId: user._id,
     purpose: "PASSWORD_RESET",
     otpHash: hashOtp(otp),
@@ -247,27 +233,15 @@ const sendPasswordResetOtp = async ({ identifier }) => {
     attemptsLeft: 5,
   });
 
-  try {
-    await sendEmail({
-      to: user.email,
-      subject: `${process.env.APP_NAME || "CareLine360"} - Password reset`,
-      html: `
+  await sendEmail({
+    to: user.email,
+    subject: `${process.env.APP_NAME || "CareLine360"} - Password reset`,
+    html: `
       <p>Your password reset code is:</p>
       <h2 style="letter-spacing:2px">${otp}</h2>
       <p>This code expires in 10 minutes.</p>
     `,
-    });
-  } catch (err) {
-    await Otp.deleteOne({ _id: record._id });
-    return {
-      status: err.statusCode || 502,
-      data: {
-        message:
-          err.message ||
-          "Unable to deliver password reset OTP email. Please check email configuration.",
-      },
-    };
-  }
+  });
 
   return { status: 200, data: { message: "Password reset OTP sent to email" } };
 };

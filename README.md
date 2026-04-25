@@ -177,7 +177,7 @@ npm run dev
 | `CLOUDINARY_API_KEY`    | Cloudinary API key                           |
 | `CLOUDINARY_API_SECRET` | Cloudinary API secret                        |
 | `RESEND_API_KEY`        | Resend API key for email notifications       |
-| `EMAIL_FROM`            | Sender email (e.g. `onboarding@resend.dev`)  |
+| `EMAIL_FROM`            | Sender email from your verified Resend domain (e.g. `no-reply@yourdomain.com`) |
 | `EMAIL_OVERRIDE_TO`     | Override all emails to this address (dev only)|
 | `GEMINI_API_KEY`        | Google Gemini API key                        |
 | `SMSLENZ_USER_ID`       | SMSLenz user ID                              |
